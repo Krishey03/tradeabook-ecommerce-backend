@@ -2,21 +2,23 @@ const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const PaymentTransaction = require('../../models/paymentTransaction');
 
+// ========== PUBLIC ROUTES ==========
+
 const getProducts = async (req, res) => {
     try {
         const products = await Product.find({ isSold: false });
         res.status(200).json({
             success: true,
             data: products
-        })
+        });
     } catch (e) {
-        console.log(e)
+        console.log(e);
         res.status(500).json({
             success: false,
             message: 'Server Error'
-        })
+        });
     }
-}
+};
 
 const getProductDetails = async (req, res) => {
     try {
@@ -34,12 +36,15 @@ const getProductDetails = async (req, res) => {
     } catch (e) {
         console.error("Product details error:", e);
         res.status(500).json({
+            success: false,
             message: 'Server Error'
         });
     }
 };
 
-// Buy product (instead of placeBid)
+// ========== PROTECTED ROUTES ==========
+
+// Buy product (add to cart)
 const buyProduct = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -47,29 +52,44 @@ const buyProduct = async (req, res) => {
         const io = req.app.get('io');
 
         if (!buyerEmail) {
-            return res.status(400).json({ message: "Buyer email is required." });
+            return res.status(400).json({ 
+                success: false,
+                message: "Buyer email is required." 
+            });
         }
 
         const product = await Product.findById(productId);
 
         if (!product) {
-            return res.status(404).json({ message: "Product not found." });
+            return res.status(404).json({ 
+                success: false,
+                message: "Product not found." 
+            });
         }
 
         if (product.isSold) {
-            return res.status(400).json({ message: "Product is already sold." });
+            return res.status(400).json({ 
+                success: false,
+                message: "Product is already sold." 
+            });
         }
 
         if (product.sellerEmail === buyerEmail) {
-            return res.status(400).json({ message: "You cannot buy your own product." });
+            return res.status(400).json({ 
+                success: false,
+                message: "You cannot buy your own product." 
+            });
         }
 
         product.buyerEmail = buyerEmail;
         await product.save();
 
-        io.emit("productUpdated", { productId: product._id });
+        if (io) {
+            io.emit("productUpdated", { productId: product._id });
+        }
 
         res.status(200).json({
+            success: true,
             message: "Product added to cart successfully",
             product: product
         });
@@ -77,11 +97,13 @@ const buyProduct = async (req, res) => {
     } catch (error) {
         console.error("Error buying product:", error);
         res.status(500).json({ 
+            success: false,
             message: error.message || "Failed to buy product" 
         });
     }
 };
 
+// Get cart items
 const getCartItems = async (req, res) => {
     try {
         const { email } = req.params;
@@ -93,7 +115,10 @@ const getCartItems = async (req, res) => {
             paymentStatus: { $nin: ["paid", "refunded"] }
         });
 
-        res.status(200).json({ success: true, data: cartItems });
+        res.status(200).json({ 
+            success: true, 
+            data: cartItems 
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({
@@ -104,6 +129,34 @@ const getCartItems = async (req, res) => {
     }
 };
 
+// Get cart items for checkout (with total)
+const getCartItemsForCheckout = async (req, res) => {
+    try {
+        const { buyerEmail } = req.params;
+        
+        const products = await Product.find({
+            buyerEmail: buyerEmail,
+            isSold: false,
+            paymentStatus: 'pending'
+        });
+
+        const total = products.reduce((sum, p) => sum + p.price, 0);
+
+        res.status(200).json({
+            success: true,
+            data: products,
+            total: total
+        });
+    } catch (error) {
+        console.error("Error fetching cart items for checkout:", error);
+        res.status(500).json({
+            success: false,
+            message: 'Server Error'
+        });
+    }
+};
+
+// Get seller orders
 const getSellerOrders = async (req, res) => {
     try {
         const { sellerEmail } = req.params;
@@ -126,6 +179,7 @@ const getSellerOrders = async (req, res) => {
     }
 };
 
+// Get buyer orders
 const getBuyerOrders = async (req, res) => {
     try {
         const { buyerEmail } = req.params;
@@ -148,6 +202,7 @@ const getBuyerOrders = async (req, res) => {
     }
 };
 
+// Update order status (accept/cancel)
 const updateOrderStatus = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -156,7 +211,7 @@ const updateOrderStatus = async (req, res) => {
         if (!['pending', 'accepted', 'cancelled'].includes(status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid status'
+                message: 'Invalid status. Must be: pending, accepted, or cancelled'
             });
         }
 
@@ -185,7 +240,9 @@ const updateOrderStatus = async (req, res) => {
         }
 
         const io = req.app.get('io');
-        io.emit('orderUpdated', { orderId: order._id });
+        if (io) {
+            io.emit('orderUpdated', { orderId: order._id });
+        }
 
         res.status(200).json({
             success: true,
@@ -200,39 +257,13 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
-const getCartItemsForCheckout = async (req, res) => {
-    try {
-        const { buyerEmail } = req.params;
-        
-        const products = await Product.find({
-            buyerEmail: buyerEmail,
-            isSold: false,
-            paymentStatus: 'pending'
-        });
-
-        const total = products.reduce((sum, p) => sum + p.price, 0);
-
-        res.status(200).json({
-            success: true,
-            data: products,
-            total: total
-        });
-    } catch (error) {
-        console.error("Error fetching cart items for checkout:", error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error'
-        });
-    }
-};
-
 module.exports = { 
     getProducts, 
     getProductDetails, 
     buyProduct,
     getCartItems,
+    getCartItemsForCheckout,
     getSellerOrders,
     getBuyerOrders,
-    updateOrderStatus,
-    getCartItemsForCheckout
+    updateOrderStatus
 };

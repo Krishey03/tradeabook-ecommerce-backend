@@ -13,6 +13,7 @@ const Product = require("./models/Product");
 const adminRoutes = require('./routes/admin/admin-routes');
 const PaymentTransaction = require('./models/paymentTransaction');
 const Order = require('./models/Order');
+const userProductsRouter = require('./routes/user/products-routes');
 
 require('dotenv').config();
 
@@ -74,7 +75,7 @@ const PORT = process.env.PORT || 5000;
 
 // Connect to local MongoDB
 mongoose
-  .connect('mongodb://localhost:27017/tradeabook', {
+  .connect(process.env.MONGODB_URI, {
   })
   .then(() => console.log('Local MongoDB Connected successfully'))
   .catch((error) => {
@@ -288,6 +289,7 @@ app.get("/payment/:paymentId", async (req, res) => {
 // Mount routers
 app.use("/auth", authRouter);
 app.use('/admin/products', adminProductsRouter);
+app.use('/user/products', userProductsRouter);
 app.use('/shop/products', shopProductsRouter);
 app.use('/admin', adminRoutes);
 app.use('/chat', messageRoutes);

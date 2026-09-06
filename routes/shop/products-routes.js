@@ -1,30 +1,37 @@
-const express = require('express')
+const express = require('express');
 const { 
     getProducts, 
     getProductDetails, 
     buyProduct,
     getCartItems,
+    getCartItemsForCheckout,
     getSellerOrders,
     getBuyerOrders,
-    updateOrderStatus,
-    getCartItemsForCheckout
-} = require('../../controllers/shop/products-controller')
-const { authMiddleware } = require('../../controllers/auth/auth-controller')
+    updateOrderStatus
+} = require('../../controllers/shop/products-controller');
+const { requireAuth } = require('../../middleware/auth');  // ← Use requireAuth
 
-const router = express.Router()
+const router = express.Router();
 
-// Public routes - anyone can view products
-router.get('/get', getProducts)
-router.get('/get/:id', getProductDetails)
+// ========== PUBLIC ROUTES (No login required) ==========
+router.get('/get', getProducts);
+router.get('/get/:id', getProductDetails);
 
-// Protected routes - require authentication
-router.use(authMiddleware)
+// ========== PROTECTED ROUTES (Login required) ==========
+router.use(requireAuth);  // ← Now uses requireAuth
 
-router.get("/cart/:email", getCartItems)
-router.get("/cart/checkout/:buyerEmail", getCartItemsForCheckout)
-router.get("/orders/seller/:sellerEmail", getSellerOrders)
-router.get("/orders/buyer/:buyerEmail", getBuyerOrders)
-router.patch("/orders/:orderId", updateOrderStatus)
-router.post("/:productId/buy", buyProduct)
+// Cart routes
+router.get('/cart/:email', getCartItems);
+router.get('/cart/checkout/:buyerEmail', getCartItemsForCheckout);
 
-module.exports = router
+// Order routes
+router.get('/orders/seller/:sellerEmail', getSellerOrders);
+router.get('/orders/buyer/:buyerEmail', getBuyerOrders);
+
+// Order actions
+router.patch('/orders/:orderId', updateOrderStatus);
+
+// Buy product
+router.post('/:productId/buy', buyProduct);
+
+module.exports = router;

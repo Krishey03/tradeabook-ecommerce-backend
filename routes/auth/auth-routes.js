@@ -7,13 +7,16 @@ const {
     getUserProfile,
     updateUserProfile
 } = require("../../controllers/auth/auth-controller");
+const { requireAuth } = require('../../middleware/auth');
 
 const router = express.Router();
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout", logoutUser);
-router.get("/check-auth", authMiddleware, (req, res) => {
+
+// Use requireAuth instead of authMiddleware
+router.get("/check-auth", requireAuth, (req, res) => {
     const user = req.user;
     const token = req.cookies.token;
     res.status(200).json({
@@ -24,7 +27,7 @@ router.get("/check-auth", authMiddleware, (req, res) => {
     });
 });
 
-router.get("/profile", authMiddleware, getUserProfile);
-router.put("/profile", authMiddleware, updateUserProfile);
+router.get("/profile", requireAuth, getUserProfile);
+router.put("/profile", requireAuth, updateUserProfile);
 
 module.exports = router;
