@@ -1,5 +1,6 @@
 const User = require('../../models/User');
 const Order = require('../../models/Order');
+const { response } = require('express');
 
 const getAllUsers = async (req, res) => {
     try {
@@ -42,6 +43,35 @@ const toggleBlockUser = async (req, res) => {
     }
 };
 
+const deleteUser = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "User not found." 
+            });
+        }
+
+        // Delete the user
+        await User.findByIdAndDelete(userId);
+
+        res.status(200).json({
+            success: true,
+            message: "User deleted successfully.",
+            deletedUser: user
+        });
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to delete user.",
+        });
+    }
+};
+
 const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find()
@@ -62,4 +92,4 @@ const getAllOrders = async (req, res) => {
     }
 };
 
-module.exports = { getAllUsers, toggleBlockUser, getAllOrders };
+module.exports = { getAllUsers, toggleBlockUser, getAllOrders, deleteUser };
